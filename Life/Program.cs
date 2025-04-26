@@ -102,7 +102,7 @@ namespace cli_life
                 string type = "unknown";
                 foreach (var template in templates)
                 {
-                    if (template.Patterns.Contains(combo))
+                    if (template.ComboInPatterns(combo))
                     {
                         type = template.Name;
                         break;
@@ -149,7 +149,7 @@ namespace cli_life
                 if (minY > _cell.Y)
                     minY = _cell.Y;
                 if (maxX < _cell.X)
-                    minX = _cell.X;
+                    maxX = _cell.X;
                 if (maxY < _cell.Y)
                     maxY = _cell.Y;
             }
@@ -182,6 +182,33 @@ namespace cli_life
             Name = name;
             Patterns = MatrixVariants.GetAllSymmetries(basic_pattern);
         }
+        
+        public bool ComboInPatterns(string[] combo)
+        {
+            foreach(var pattern in Patterns)
+            {
+                if (ComboEqualPattern(pattern, combo))
+                    return true;
+            }
+            return false;
+        }
+
+        private bool ComboEqualPattern(string[] combo, string[] pattern)
+        {
+            if (combo.Length != pattern.Length)
+                return false;
+            for (int i = 0; i < combo.Length; i++)
+            {
+                if (combo[i].Length != pattern[i].Length)
+                    return false;
+                for (int j = 0; j < combo[i].Length; j++)
+                {
+                    if (combo[i][j] != pattern[i][j])
+                        return false;
+                }
+            }
+            return true;
+        }
     }
     public class MatrixVariants
     {
@@ -206,18 +233,25 @@ namespace cli_life
 
         private static string[] Rotate90(string[] matrix)
         {
-            int size = matrix.Length;
-            string[] rotated = new string[size];
-            for (int i = 0; i < size; ++i)
+            if (matrix == null || matrix.Length == 0)
+                return Array.Empty<string>();
+            int rows = matrix.Length;
+            int cols = matrix[0].Length;
+            char[][] rotated = new char[cols][];
+            for (int i = 0; i < cols; i++)
             {
-                char[] newRow = new char[size];
-                for (int j = 0; j < size; ++j)
+                rotated[i] = new char[rows];
+                for (int j = 0; j < rows; j++)
                 {
-                    newRow[j] = matrix[size - 1 - j][i];
+                    rotated[i][j] = matrix[rows - j - 1][i];
                 }
-                rotated[i] = new string(newRow);
             }
-            return rotated;
+            string[] result = new string[cols];
+            for (int i = 0; i < cols; i++)
+            {
+                result[i] = new string(rotated[i]);
+            }
+            return result;
         }
 
         private static string[] HorizontalReflection(string[] matrix)
@@ -355,12 +389,12 @@ namespace cli_life
         static HashSet<FigureTemplate> figureVariants = new HashSet<FigureTemplate>();
         static void Load_figures()
         {
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\blinker.txt"), "blinker.txt"));
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\block.txt"), "block.txt"));
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\boat.txt"), "boat.txt"));
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\glider.txt"), "glider.txt"));
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\hive.txt"), "hive.txt"));
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\tub.txt"), "tub.txt"));
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\blinker.txt"), "blinker"));
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\block.txt"), "block"));
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\boat.txt"), "boat"));
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\glider.txt"), "glider"));
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\hive.txt"), "hive"));
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\tub.txt"), "tub"));
         }
         static private void Reset(bool Loaded)
         {
@@ -409,6 +443,9 @@ namespace cli_life
                 {
                     Console.WriteLine($"{shape.Key}: {shape.Value}");
                 }
+                var (x, y) = analyzer.BoardAnalysis();
+                Console.WriteLine("Count of figures: " + x);
+                Console.WriteLine("Count of points: " + y);
                 if (Console.KeyAvailable)
                 {
                     var key = Console.ReadKey(true).KeyChar;
