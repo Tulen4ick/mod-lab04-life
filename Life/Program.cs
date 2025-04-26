@@ -182,10 +182,10 @@ namespace cli_life
             Name = name;
             Patterns = MatrixVariants.GetAllSymmetries(basic_pattern);
         }
-        
+
         public bool ComboInPatterns(string[] combo)
         {
-            foreach(var pattern in Patterns)
+            foreach (var pattern in Patterns)
             {
                 if (ComboEqualPattern(pattern, combo))
                     return true;
@@ -396,15 +396,17 @@ namespace cli_life
             figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\hive.txt"), "hive"));
             figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\tub.txt"), "tub"));
         }
-        static private void Reset(bool Loaded)
+        static private void Reset(bool Loaded, double additionalDensity)
         {
             string jsonString = File.ReadAllText(@"..\settings.json");
             World_Settings settings = JsonSerializer.Deserialize<World_Settings>(jsonString);
+            if (additionalDensity < 0)
+                additionalDensity = settings.liveDensity;
             board = new Board(
                 settings.width,
                 settings.height,
                 settings.cellSize,
-                settings.liveDensity,
+                additionalDensity,
                 Loaded);
             if (Loaded) board.Load_Board();
             Load_figures();
@@ -428,14 +430,20 @@ namespace cli_life
                 Console.Write('\n');
             }
         }
-        static void Main(string[] args)
+
+        static int StartTheGame(double density, int attempt)
         {
-            Reset(true);
+            Reset(false, density);
+            int generation = 0;
+            int stablePhaseTime = 10;
+            int possibleStability = 0;
+            int countOfAlivePoints = 0;
             while (true)
             {
                 Console.Clear();
                 Render();
                 board.Advance();
+                generation++;
                 var analyzer = new BoardAnalyzer(board, figureVariants);
                 var classification = analyzer.ClassificationOfShapes();
                 Console.WriteLine("Shape statistics: ");
@@ -446,6 +454,22 @@ namespace cli_life
                 var (x, y) = analyzer.BoardAnalysis();
                 Console.WriteLine("Count of figures: " + x);
                 Console.WriteLine("Count of points: " + y);
+                if (countOfAlivePoints == y)
+                {
+                    possibleStability++;
+                    if (possibleStability == stablePhaseTime)
+                    {
+                        string filename = @"average_number_of_generations\LiveDensity" + density.ToString() + ".txt";
+                        string text = attempt.ToString() + " запуск: количество поколений: " + generation.ToString() + "\n";
+                        File.AppendAllText(filename, text);
+                        return generation;
+                    }
+                }
+                else
+                {
+                    possibleStability = 0;
+                }
+                countOfAlivePoints = y;
                 if (Console.KeyAvailable)
                 {
                     var key = Console.ReadKey(true).KeyChar;
@@ -456,7 +480,20 @@ namespace cli_life
                         board.Load_Figure(int.Parse(key.ToString()), figureVariants);
                     }
                 }
-                Thread.Sleep(1000);
+            }
+        }
+        static void Main(string[] args)
+        {
+            for (double density = 0.1; density < 1; density += 0.1)
+            {
+                int countOfGenerations = 0;
+                for (int i = 1; i <= 10; ++i)
+                {
+                    countOfGenerations += StartTheGame(density, i);
+                }
+                string filename = @"average_number_of_generations\LiveDensity" + density.ToString() + ".txt";
+                string text = "Среднее количество поколений: " + ((double)countOfGenerations / (double)10).ToString() + "\n";
+                File.AppendAllText(filename, text);
             }
         }
     }
