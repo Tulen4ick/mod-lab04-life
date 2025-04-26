@@ -8,6 +8,10 @@ using System.IO;
 using System.Text.Json;
 using System.Xml.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.ComponentModel;
+using System.Data;
+using System.Reflection.Metadata;
 
 namespace cli_life
 {
@@ -18,6 +22,214 @@ namespace cli_life
         public int height { get; set; }
         public int cellSize { get; set; }
         public double liveDensity { get; set; }
+    }
+    public class BoardAnalyzer
+    {
+        private bool[,] visited;
+        private Board board;
+        private Dictionary<Cell, (int X, int Y)> cellsCoordinates;
+        private HashSet<FigureTemplate> templates;
+        public BoardAnalyzer(Board board, HashSet<FigureTemplate> templates)
+        {
+            this.board = board;
+            this.templates = templates;
+            visited = new bool[board.Columns, board.Rows];
+            cellsCoordinates = new Dictionary<Cell, (int X, int Y)>();
+            for (int x = 0; x < board.Columns; ++x)
+            {
+                for (int y = 0; y < board.Rows; ++y)
+                {
+                    cellsCoordinates[board.Cells[x, y]] = (x, y);
+                }
+            }
+        }
+
+        private List<(int X, int Y)> BFS(int startX, int startY)
+        {
+            var cells = new List<(int X, int Y)>();
+            Queue<(int X, int Y)> queue = new Queue<(int X, int Y)>();
+            queue.Enqueue((startX, startY));
+            cells.Add((startX, startY));
+            visited[startX, startY] = true;
+            while (queue.Count > 0)
+            {
+                var (x, y) = queue.Dequeue();
+                foreach (Cell neighbor in board.Cells[x, y].neighbors)
+                {
+                    if (cellsCoordinates.TryGetValue(neighbor, out var coordinates))
+                    {
+                        if (!visited[coordinates.X, coordinates.Y] && neighbor.IsAlive)
+                        {
+                            visited[coordinates.X, coordinates.Y] = true;
+                            queue.Enqueue((coordinates.X, coordinates.Y));
+                            cells.Add((coordinates.X, coordinates.Y));
+                        }
+                    }
+                }
+            }
+            return cells;
+        }
+
+        public (int CountOfFigures, int CountOfAlive) BoardAnalysis()
+        {
+            visited = new bool[board.Columns, board.Rows];
+            int CountOfAlive = 0;
+            int CountOfFigures = 0;
+            for (int x = 0; x < board.Columns; ++x)
+            {
+                for (int y = 0; y < board.Rows; ++y)
+                {
+                    if (board.Cells[x, y].IsAlive)
+                    {
+                        CountOfAlive++;
+                        if (!visited[x, y])
+                        {
+                            BFS(x, y);
+                            CountOfFigures++;
+                        }
+                    }
+                }
+            }
+            return (CountOfFigures, CountOfAlive);
+        }
+
+        public Dictionary<string, int> ClassificationOfShapes()
+        {
+            var result = new Dictionary<string, int>();
+            var combos = AllCombos();
+            foreach (var combo in combos)
+            {
+                string type = "unknown";
+                foreach (var template in templates)
+                {
+                    if (template.Patterns.Contains(combo))
+                    {
+                        type = template.Name;
+                        break;
+                    }
+                }
+                if (result.ContainsKey(type))
+                {
+                    result[type]++;
+                }
+                else
+                    result[type] = 1;
+            }
+            return result;
+        }
+
+        private List<string[]> AllCombos()
+        {
+            var result = new List<string[]>();
+            visited = new bool[board.Columns, board.Rows];
+            for (int x = 0; x < board.Columns; ++x)
+            {
+                for (int y = 0; y < board.Rows; ++y)
+                {
+                    if (!visited[x, y] && board.Cells[x, y].IsAlive)
+                    {
+                        var cells = BFS(x, y);
+                        result.Add(CreateMatrix(cells));
+                    }
+                }
+            }
+            return result;
+        }
+
+        private string[] CreateMatrix(List<(int X, int Y)> cells)
+        {
+            int minX = cells[0].X;
+            int minY = cells[0].Y;
+            int maxX = cells[0].X;
+            int maxY = cells[0].Y;
+            foreach (var _cell in cells)
+            {
+                if (minX > _cell.X)
+                    minX = _cell.X;
+                if (minY > _cell.Y)
+                    minY = _cell.Y;
+                if (maxX < _cell.X)
+                    minX = _cell.X;
+                if (maxY < _cell.Y)
+                    maxY = _cell.Y;
+            }
+            int width = maxX - minX + 1;
+            int height = maxY - minY + 1;
+            var result = new string[height];
+            for (int y = 0; y < height; ++y)
+            {
+                result[y] = "";
+                for (int x = 0; x < width; ++x)
+                {
+                    if (cells.Contains((x + minX, y + minY)))
+                    {
+                        result[y] = result[y] + '1';
+                    }
+                    else
+                        result[y] = result[y] + '0';
+                }
+            }
+            return result;
+        }
+    }
+    public class FigureTemplate
+    {
+        public string Name { get; set; }
+        public HashSet<string[]> Patterns { get; set; }
+
+        public FigureTemplate(string[] basic_pattern, string name)
+        {
+            Name = name;
+            Patterns = MatrixVariants.GetAllSymmetries(basic_pattern);
+        }
+    }
+    public class MatrixVariants
+    {
+        public static HashSet<string[]> GetAllSymmetries(string[] basic_matrix)
+        {
+            var allMatrices = new HashSet<string[]>();
+            string[] current = basic_matrix;
+            for (int i = 0; i < 4; ++i)
+            {
+                allMatrices.Add(current);
+                current = Rotate90(current);
+            }
+            string[] reflected = HorizontalReflection(basic_matrix);
+            current = reflected;
+            for (int i = 0; i < 4; ++i)
+            {
+                allMatrices.Add(current);
+                current = Rotate90(current);
+            }
+            return allMatrices;
+        }
+
+        private static string[] Rotate90(string[] matrix)
+        {
+            int size = matrix.Length;
+            string[] rotated = new string[size];
+            for (int i = 0; i < size; ++i)
+            {
+                char[] newRow = new char[size];
+                for (int j = 0; j < size; ++j)
+                {
+                    newRow[j] = matrix[size - 1 - j][i];
+                }
+                rotated[i] = new string(newRow);
+            }
+            return rotated;
+        }
+
+        private static string[] HorizontalReflection(string[] matrix)
+        {
+            int size = matrix.Length;
+            string[] reflected = new string[size];
+            for (int i = 0; i < size; ++i)
+            {
+                reflected[i] = new string(matrix[i].Reverse().ToArray());
+            }
+            return reflected;
+        }
     }
     public class Cell
     {
@@ -123,9 +335,9 @@ namespace cli_life
             }
         }
 
-        public void Load_Figure(int figure_number, HashSet<string[]> basic_figures)
+        public void Load_Figure(int figure_number, HashSet<FigureTemplate> figureVariants)
         {
-            string[] figure = basic_figures.ElementAt(figure_number - 1);
+            string[] figure = figureVariants.ElementAt(figure_number - 1).Patterns.ElementAt(0);
             int startX = rand.Next(0, Columns - figure[0].Length + 1);
             int startY = rand.Next(0, Rows - figure.Length + 1);
             for (int y = 0; y < figure.Length; ++y)
@@ -135,21 +347,20 @@ namespace cli_life
                     Cells[x + startX, y + startY].IsAlive = figure[y][x] == '1';
                 }
             }
-
         }
     }
     class Program
     {
         static Board board;
-        static HashSet<string[]> basic_figures = new HashSet<string[]>();
+        static HashSet<FigureTemplate> figureVariants = new HashSet<FigureTemplate>();
         static void Load_figures()
         {
-            basic_figures.Add(File.ReadAllLines(@"figures\blinker.txt"));
-            basic_figures.Add(File.ReadAllLines(@"figures\block.txt"));
-            basic_figures.Add(File.ReadAllLines(@"figures\boat.txt"));
-            basic_figures.Add(File.ReadAllLines(@"figures\glider.txt"));
-            basic_figures.Add(File.ReadAllLines(@"figures\hive.txt"));
-            basic_figures.Add(File.ReadAllLines(@"figures\tub.txt"));
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\blinker.txt"), "blinker.txt"));
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\block.txt"), "block.txt"));
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\boat.txt"), "boat.txt"));
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\glider.txt"), "glider.txt"));
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\hive.txt"), "hive.txt"));
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\tub.txt"), "tub.txt"));
         }
         static private void Reset(bool Loaded)
         {
@@ -191,6 +402,13 @@ namespace cli_life
                 Console.Clear();
                 Render();
                 board.Advance();
+                var analyzer = new BoardAnalyzer(board, figureVariants);
+                var classification = analyzer.ClassificationOfShapes();
+                Console.WriteLine("Shape statistics: ");
+                foreach (var shape in classification)
+                {
+                    Console.WriteLine($"{shape.Key}: {shape.Value}");
+                }
                 if (Console.KeyAvailable)
                 {
                     var key = Console.ReadKey(true).KeyChar;
@@ -198,7 +416,7 @@ namespace cli_life
                     if (key == 'L') board.Load_Board();
                     if (key == '1' || key == '2' || key == '3' || key == '4' || key == '5' || key == '6')
                     {
-                        board.Load_Figure(int.Parse(key.ToString()), basic_figures);
+                        board.Load_Figure(int.Parse(key.ToString()), figureVariants);
                     }
                 }
                 Thread.Sleep(1000);
