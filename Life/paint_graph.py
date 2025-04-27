@@ -3,7 +3,7 @@ import os
 
 x = []
 y = []
-with open('Life/DataForGraph.txt', 'r') as file:
+with open('Life/data.txt', 'r') as file:
     for line in file:
         values = line.strip().split()
         x.append(float(values[0].replace(',', '.')))

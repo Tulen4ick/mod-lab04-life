@@ -506,7 +506,7 @@ namespace cli_life
             for (double density = 0.63; density <= 1; density += 0.02)
             {
                 int countOfGenerations = StartTheGame(density, 0);
-                string filename = "DataForGraph.txt";
+                string filename = "data.txt";
                 string text = $"{density} {countOfGenerations}\n";
                 File.AppendAllText(filename, text);
             }
