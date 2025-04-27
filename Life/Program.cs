@@ -44,7 +44,7 @@ namespace cli_life
             }
         }
 
-        private List<(int X, int Y)> BFS(int startX, int startY)
+        public List<(int X, int Y)> BFS(int startX, int startY)
         {
             var cells = new List<(int X, int Y)>();
             Queue<(int X, int Y)> queue = new Queue<(int X, int Y)>();
@@ -270,6 +270,7 @@ namespace cli_life
         public bool IsAlive;
         public readonly List<Cell> neighbors = new List<Cell>();
         private bool IsAliveNext;
+        public bool _isAliveNext => IsAliveNext;
         public void DetermineNextLiveState()
         {
             int liveNeighbors = neighbors.Where(x => x.IsAlive).Count();
