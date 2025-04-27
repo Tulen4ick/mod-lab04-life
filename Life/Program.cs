@@ -459,9 +459,12 @@ namespace cli_life
                     possibleStability++;
                     if (possibleStability == stablePhaseTime)
                     {
-                        string filename = @"average_number_of_generations\LiveDensity" + density.ToString() + ".txt";
-                        string text = attempt.ToString() + " запуск: количество поколений: " + generation.ToString() + "\n";
-                        File.AppendAllText(filename, text);
+                        if (attempt != 0)
+                        {
+                            string filename = @"average_number_of_generations\LiveDensity" + density.ToString() + ".txt";
+                            string text = attempt.ToString() + " запуск: количество поколений: " + generation.ToString() + "\n";
+                            File.AppendAllText(filename, text);
+                        }
                         return generation;
                     }
                 }
@@ -482,7 +485,8 @@ namespace cli_life
                 }
             }
         }
-        static void Main(string[] args)
+
+        static void CreatingMultipleLaunchData()
         {
             for (double density = 0.1; density < 1; density += 0.1)
             {
@@ -495,6 +499,21 @@ namespace cli_life
                 string text = "Среднее количество поколений: " + ((double)countOfGenerations / (double)10).ToString() + "\n";
                 File.AppendAllText(filename, text);
             }
+        }
+
+        static void CreatingDataForGraph()
+        {
+            for (double density = 0.63; density <= 1; density += 0.02)
+            {
+                int countOfGenerations = StartTheGame(density, 0);
+                string filename = "DataForGraph.txt";
+                string text = $"{density} {countOfGenerations}\n";
+                File.AppendAllText(filename, text);
+            }
+        }
+        static void Main(string[] args)
+        {
+            CreatingDataForGraph();
         }
     }
 }
