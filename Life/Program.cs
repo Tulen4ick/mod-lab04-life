@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using System.ComponentModel;
 using System.Data;
 using System.Reflection.Metadata;
+using System.Reflection;
 
 namespace cli_life
 {
@@ -343,7 +344,7 @@ namespace cli_life
                 }
             }
         }
-        public void Save_Board()
+        public void Save_Board(string saved_txt)
         {
             List<string> state = new List<string>();
             for (int row = 0; row < Rows; row++)
@@ -355,12 +356,12 @@ namespace cli_life
                 }
                 state.Add(line.ToString());
             }
-            File.WriteAllLines(@"..\saved_state.txt", state);
+            File.WriteAllLines(saved_txt, state);
         }
-        public void Load_Board()
+        public void Load_Board(string saved_txt)
         {
-            if (!File.Exists(@"..\saved_state.txt")) return;
-            var state = File.ReadAllLines(@"..\saved_state.txt");
+            if (!File.Exists(saved_txt)) return;
+            var state = File.ReadAllLines(saved_txt);
             for (int row = 0; row < Rows && row < state.Length; row++)
             {
                 for (int col = 0; col < Columns && col < state[row].Length; col++)
@@ -388,18 +389,38 @@ namespace cli_life
     {
         static Board board;
         static HashSet<FigureTemplate> figureVariants = new HashSet<FigureTemplate>();
+        public static string GetProjectRoot()
+        {
+            var currentDir = Directory.GetCurrentDirectory();
+            var directory = new DirectoryInfo(currentDir);
+
+            while (directory != null && !directory.GetFiles("*.csproj").Any())
+            {
+                directory = directory.Parent;
+            }
+
+            return directory?.FullName ??
+                   Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+        }
         static void Load_figures()
         {
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\blinker.txt"), "blinker"));
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\block.txt"), "block"));
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\boat.txt"), "boat"));
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\glider.txt"), "glider"));
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\hive.txt"), "hive"));
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\tub.txt"), "tub"));
+            string figuresPath = Path.Combine(GetProjectRoot(), "figures");
+            string figure1Path = Path.Combine(figuresPath, "blinker.txt");
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(figure1Path), "blinker"));
+            string figure2Path = Path.Combine(figuresPath, "block.txt");
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(figure2Path), "block"));
+            string figure3Path = Path.Combine(figuresPath, "boat.txt");
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(figure3Path), "boat"));
+            string figure4Path = Path.Combine(figuresPath, "glider.txt");
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(figure4Path), "glider"));
+            string figure5Path = Path.Combine(figuresPath, "hive.txt");
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(figure5Path), "hive"));
+            string figure6Path = Path.Combine(figuresPath, "tub.txt");
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(figure6Path), "tub"));
         }
-        static private void Reset(bool Loaded, double additionalDensity)
+        static private void Reset(bool Loaded, double additionalDensity, string settings_path, string saved_txt)
         {
-            string jsonString = File.ReadAllText(@"..\settings.json");
+            string jsonString = File.ReadAllText(settings_path);
             World_Settings settings = JsonSerializer.Deserialize<World_Settings>(jsonString);
             if (additionalDensity < 0)
                 additionalDensity = settings.liveDensity;
@@ -409,7 +430,7 @@ namespace cli_life
                 settings.cellSize,
                 additionalDensity,
                 Loaded);
-            if (Loaded) board.Load_Board();
+            if (Loaded) board.Load_Board(saved_txt);
             Load_figures();
         }
         static void Render()
@@ -434,7 +455,10 @@ namespace cli_life
 
         static int StartTheGame(double density, int attempt)
         {
-            Reset(false, density);
+            string project_path = GetProjectRoot();
+            string prop_path = Path.Combine(project_path, "settings.json");
+            string file_path = Path.Combine(prop_path, "saved_state.txt");
+            Reset(false, density, prop_path, file_path);
             int generation = 0;
             int stablePhaseTime = 10;
             int possibleStability = 0;
@@ -462,7 +486,8 @@ namespace cli_life
                     {
                         if (attempt != 0)
                         {
-                            string filename = @"average_number_of_generations\LiveDensity" + density.ToString() + ".txt";
+                            string txt_name = "LiveDensity" + density.ToString() + ".txt";
+                            string filename = Path.Combine(project_path, "average_number_of_generations", txt_name);
                             string text = attempt.ToString() + " запуск: количество поколений: " + generation.ToString() + "\n";
                             File.AppendAllText(filename, text);
                         }
@@ -477,13 +502,14 @@ namespace cli_life
                 if (Console.KeyAvailable)
                 {
                     var key = Console.ReadKey(true).KeyChar;
-                    if (key == 'S') board.Save_Board();
-                    if (key == 'L') board.Load_Board();
+                    if (key == 'S') board.Save_Board(file_path);
+                    if (key == 'L') board.Load_Board(file_path);
                     if (key == '1' || key == '2' || key == '3' || key == '4' || key == '5' || key == '6')
                     {
                         board.Load_Figure(int.Parse(key.ToString()), figureVariants);
                     }
                 }
+                Thread.Sleep(1000);
             }
         }
 
@@ -496,7 +522,8 @@ namespace cli_life
                 {
                     countOfGenerations += StartTheGame(density, i);
                 }
-                string filename = @"average_number_of_generations\LiveDensity" + density.ToString() + ".txt";
+                string txt_name = "LiveDensity" + density.ToString() + ".txt";
+                string filename = Path.Combine(GetProjectRoot(), "average_number_of_generations", txt_name);
                 string text = "Среднее количество поколений: " + ((double)countOfGenerations / (double)10).ToString() + "\n";
                 File.AppendAllText(filename, text);
             }
@@ -507,14 +534,14 @@ namespace cli_life
             for (double density = 0.63; density <= 1; density += 0.02)
             {
                 int countOfGenerations = StartTheGame(density, 0);
-                string filename = "data.txt";
+                string filename = Path.Combine(GetProjectRoot(), "data.txt");
                 string text = $"{density} {countOfGenerations}\n";
                 File.AppendAllText(filename, text);
             }
         }
         static void Main(string[] args)
         {
-            CreatingDataForGraph();
+            StartTheGame(-1, 0);
         }
     }
 }

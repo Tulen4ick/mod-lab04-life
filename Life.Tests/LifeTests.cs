@@ -1,6 +1,7 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using cli_life;
 using System.Text.Json;
+using System.Reflection;
 
 
 namespace Life.Tests
@@ -58,7 +59,7 @@ namespace Life.Tests
         [TestMethod]
         public void Board_ConnectNeighbors_ToroidalTopology()
         {
-            var board = new Board(30, 30, 10);
+            var board = new Board(30, 30, 1);
             var edgeCell = board.Cells[0, 0];
             Assert.IsTrue(edgeCell.neighbors.Contains(board.Cells[29, 29]));
         }
@@ -68,9 +69,17 @@ namespace Life.Tests
         {
             var board = new Board(10, 10, 1);
             board.Cells[2, 3].IsAlive = true;
-            board.Save_Board();
+            var currentDir = Directory.GetCurrentDirectory();
+            var directory = new DirectoryInfo(currentDir);
+
+            while (directory != null && !directory.GetFiles("*.csproj").Any())
+            {
+                directory = directory.Parent;
+            }
+            string saved_txt = Path.Combine(directory.FullName, "saved_state.txt");
+            board.Save_Board(saved_txt);
             var newBoard = new Board(10, 10, 1, 0, true);
-            newBoard.Load_Board();
+            newBoard.Load_Board(saved_txt);
             Assert.IsTrue(newBoard.Cells[2, 3].IsAlive);
         }
     }
@@ -84,7 +93,7 @@ namespace Life.Tests
         [TestInitialize]
         public void Setup()
         {
-            _board = new Board(30, 30, 1);
+            _board = new Board(30, 30, 1, 0);
             _analyzer = new BoardAnalyzer(_board, new HashSet<FigureTemplate>());
         }
 
@@ -118,8 +127,15 @@ namespace Life.Tests
         {
             _board = new Board(50, 20, 1, 0.5);
             figureVariants = new HashSet<FigureTemplate>();
-            if (!File.Exists("TestState.txt")) return;
-            var state = File.ReadAllLines("TestState.txt");
+            var currentDir = Directory.GetCurrentDirectory();
+            var directory = new DirectoryInfo(currentDir);
+
+            while (directory != null && !directory.GetFiles("*.csproj").Any())
+            {
+                directory = directory.Parent;
+            }
+            //if (!File.Exists("TestState.txt")) return;
+            var state = File.ReadAllLines(Path.Combine(directory.FullName, "TestState.txt"));
             for (int row = 0; row < _board.Rows && row < state.Length; row++)
             {
                 for (int col = 0; col < _board.Columns && col < state[row].Length; col++)
@@ -127,12 +143,19 @@ namespace Life.Tests
                     _board.Cells[col, row].IsAlive = state[row][col] == '1';
                 }
             }
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\blinker.txt"), "blinker"));
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\block.txt"), "block"));
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\boat.txt"), "boat"));
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\glider.txt"), "glider"));
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\hive.txt"), "hive"));
-            figureVariants.Add(new FigureTemplate(File.ReadAllLines(@"figures\tub.txt"), "tub"));
+            string figuresPath = Path.Combine(directory.FullName, "figures");
+            string figure1Path = Path.Combine(figuresPath, "blinker.txt");
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(figure1Path), "blinker"));
+            string figure2Path = Path.Combine(figuresPath, "block.txt");
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(figure2Path), "block"));
+            string figure3Path = Path.Combine(figuresPath, "boat.txt");
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(figure3Path), "boat"));
+            string figure4Path = Path.Combine(figuresPath, "glider.txt");
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(figure4Path), "glider"));
+            string figure5Path = Path.Combine(figuresPath, "hive.txt");
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(figure5Path), "hive"));
+            string figure6Path = Path.Combine(figuresPath, "tub.txt");
+            figureVariants.Add(new FigureTemplate(File.ReadAllLines(figure6Path), "tub"));
         }
 
         [TestMethod]
